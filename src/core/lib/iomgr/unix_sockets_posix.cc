@@ -102,3 +102,32 @@ char* grpc_sockaddr_to_uri_unix_if_possible(
 }
 
 #endif
+
+#include <sys/socket.h>
+#include <linux/vm_sockets.h>
+
+int grpc_is_vsock_socket(const grpc_resolved_address* resolved_addr) {
+  const grpc_sockaddr* addr =
+      reinterpret_cast<const grpc_sockaddr*>(resolved_addr->addr);
+  return addr->sa_family == AF_VSOCK;
+}
+
+grpc_error* grpc_resolve_vsock_domain_address(const char* cid, const char* port,
+                                             grpc_resolved_addresses** addrs) {
+  struct sockaddr_vm* vm;
+
+  *addrs = static_cast<grpc_resolved_addresses*>(
+      gpr_malloc(sizeof(grpc_resolved_addresses)));
+  (*addrs)->naddrs = 1;
+  (*addrs)->addrs = static_cast<grpc_resolved_address*>(
+      gpr_malloc(sizeof(grpc_resolved_address)));
+  vm = reinterpret_cast<struct sockaddr_vm*>((*addrs)->addrs->addr);
+  memset(vm, 0, sizeof(struct sockaddr_vm));
+  vm->svm_family = AF_VSOCK;
+  vm->svm_port = atoi(port);
+  vm->svm_cid = atoi(cid);
+  (*addrs)->addrs->len =
+      static_cast<socklen_t>(sizeof(struct sockaddr_vm));
+
+  return GRPC_ERROR_NONE;
+}

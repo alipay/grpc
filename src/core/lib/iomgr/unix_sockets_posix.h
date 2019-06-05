@@ -40,4 +40,9 @@ void grpc_unlink_if_unix_domain_socket(
 char* grpc_sockaddr_to_uri_unix_if_possible(
     const grpc_resolved_address* resolved_addr);
 
+grpc_error* grpc_resolve_vsock_domain_address(
+    const char* cid, const char* port, grpc_resolved_addresses** addresses);
+
+int grpc_is_vsock_socket(const grpc_resolved_address* resolved_addr);
+
 #endif /* GRPC_CORE_LIB_IOMGR_UNIX_SOCKETS_POSIX_H */

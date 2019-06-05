@@ -265,6 +265,8 @@ int grpc_sockaddr_get_port(const grpc_resolved_address* resolved_addr) {
       return grpc_ntohs(((grpc_sockaddr_in*)addr)->sin_port);
     case GRPC_AF_INET6:
       return grpc_ntohs(((grpc_sockaddr_in6*)addr)->sin6_port);
+    case GRPC_AF_VSOCK:
+      return ((struct sockaddr_vm *)addr)->svm_port;
     default:
       if (grpc_is_unix_socket(resolved_addr)) {
         return 1;

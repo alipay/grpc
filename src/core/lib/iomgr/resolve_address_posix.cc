@@ -53,10 +53,18 @@ static grpc_error* posix_blocking_resolve_address(
   int s;
   size_t i;
   grpc_error* err;
+  bool is_vsock = false;
 
   if (name[0] == 'u' && name[1] == 'n' && name[2] == 'i' && name[3] == 'x' &&
       name[4] == ':' && name[5] != 0) {
     return grpc_resolve_unix_domain_address(name + 5, addresses);
+  }
+
+  if (name[0] == 'v' && name[1] == 's' && name[2] == 'o' && name[3] == 'c' &&
+      name[4] == 'k' && name[5] == ':' && name[6] == '/' && name[7] == '/' &&
+      name[8] != 0) {
+    is_vsock = true;
+    name += 8;
   }
 
   /* parse name, splitting it into host and port parts */
@@ -76,6 +84,9 @@ static grpc_error* posix_blocking_resolve_address(
     }
     port = gpr_strdup(default_port);
   }
+
+  if (is_vsock)
+    return grpc_resolve_vsock_domain_address(host, port, addresses);
 
   /* Call getaddrinfo */
   memset(&hints, 0, sizeof(hints));
