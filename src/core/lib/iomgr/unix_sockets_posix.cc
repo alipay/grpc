@@ -131,3 +131,17 @@ grpc_error* grpc_resolve_vsock_domain_address(const char* cid, const char* port,
 
   return GRPC_ERROR_NONE;
 }
+
+char* grpc_sockaddr_to_uri_vsock_if_possible(
+    const grpc_resolved_address* resolved_addr) {
+  const grpc_sockaddr* addr =
+      reinterpret_cast<const grpc_sockaddr*>(resolved_addr->addr);
+  if (addr->sa_family != AF_VSOCK) {
+    return nullptr;
+  }
+
+  char* result;
+  gpr_asprintf(&result, "vsock://%d:%d", ((struct sockaddr_vm*)addr)->svm_cid,
+      ((struct sockaddr_vm*)addr)->svm_port);
+  return result;
+}

@@ -224,6 +224,8 @@ char* grpc_sockaddr_to_uri(const grpc_resolved_address* resolved_addr) {
   const char* scheme = grpc_sockaddr_get_uri_scheme(resolved_addr);
   if (scheme == nullptr || strcmp("unix", scheme) == 0) {
     return grpc_sockaddr_to_uri_unix_if_possible(resolved_addr);
+  } else if (strcmp("vsock", scheme) == 0) {
+    return grpc_sockaddr_to_uri_vsock_if_possible(resolved_addr);
   }
   char* path = nullptr;
   char* uri_str = nullptr;
@@ -247,6 +249,8 @@ const char* grpc_sockaddr_get_uri_scheme(
       return "ipv6";
     case GRPC_AF_UNIX:
       return "unix";
+    case GRPC_AF_VSOCK:
+      return "vsock";
   }
   return nullptr;
 }

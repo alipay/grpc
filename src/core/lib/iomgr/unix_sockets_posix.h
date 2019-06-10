@@ -45,4 +45,7 @@ grpc_error* grpc_resolve_vsock_domain_address(
 
 int grpc_is_vsock_socket(const grpc_resolved_address* resolved_addr);
 
+char* grpc_sockaddr_to_uri_vsock_if_possible(
+    const grpc_resolved_address* resolved_addr);
+
 #endif /* GRPC_CORE_LIB_IOMGR_UNIX_SOCKETS_POSIX_H */
