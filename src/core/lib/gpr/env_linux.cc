@@ -54,7 +54,8 @@ const char* gpr_getenv_silent(const char* name, char** dst) {
     }
   }
   result = getenv_func(name);
-#elif __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17)
+#elif !defined(GRPC_WITH_MUSL) && \
+    (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17))
   result = secure_getenv(name);
 #else
   result = getenv(name);
