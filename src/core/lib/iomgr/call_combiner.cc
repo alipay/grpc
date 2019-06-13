@@ -26,6 +26,10 @@
 #include "src/core/lib/debug/stats.h"
 #include "src/core/lib/profiling/timers.h"
 
+#ifdef GRPC_WITH_MUSL
+extern "C"{ void * __dso_handle = 0 ;}
+#endif
+
 grpc_core::TraceFlag grpc_call_combiner_trace(false, "call_combiner");
 
 static grpc_error* decode_cancel_state_error(gpr_atm cancel_state) {
