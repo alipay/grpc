@@ -55,6 +55,8 @@
 #include "src/core/lib/slice/slice_internal.h"
 #include "src/core/lib/slice/slice_string_helpers.h"
 
+#include "src/core/ext/transport/chttp2/transport/frame.h"
+
 #ifdef GRPC_HAVE_MSG_NOSIGNAL
 #define SENDMSG_FLAGS MSG_NOSIGNAL
 #else
@@ -77,6 +79,7 @@ struct grpc_tcp {
   /* Used by the endpoint read function to distinguish the very first read call
    * from the rest */
   bool is_first_read;
+  bool is_vsock_first_write;
   double target_length;
   double bytes_read_this_round;
   gpr_refcount refcount;
@@ -804,6 +807,42 @@ static bool tcp_flush(grpc_tcp* tcp, grpc_error** error) {
   // buffer as we write
   size_t outgoing_slice_idx = 0;
 
+  if (tcp->is_vsock_first_write) {
+    // The first package will be dropped or truncated with firecracker
+    // hybrid vsock.
+    // Send an empty frame setting package as the first one and wait
+    // the first package from client can handle the issue.
+    struct msghdr amsg;
+    char buf[9];
+    struct iovec iov[1];
+    fd_set rset;
+    struct timeval tv;
+
+    memset(&amsg, 0, sizeof(struct msghdr));
+    amsg.msg_iovlen = 1;
+    amsg.msg_iov = iov;
+    memset(buf, 0, 9);
+    buf[3] = GRPC_CHTTP2_FRAME_SETTINGS;
+    iov[0].iov_base  = buf;
+    iov[0].iov_len = 9;
+
+    if (tcp_send(tcp->fd, &amsg) != 9) {
+      *error = tcp_annotate_error(GRPC_OS_ERROR(errno, "sendmsg"), tcp);
+      return true;
+    }
+
+    FD_ZERO(&rset);
+    FD_SET(tcp->fd, &rset);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    if (select(tcp->fd + 1, &rset, NULL, NULL, &tv) <= 0) {
+      *error = tcp_annotate_error(GRPC_OS_ERROR(errno, "select"), tcp);
+      return true;
+    }
+
+    tcp->is_vsock_first_write = false;
+  }
+
   for (;;) {
     sending_length = 0;
     unwind_slice_idx = outgoing_slice_idx;
@@ -1067,6 +1106,13 @@ grpc_endpoint* grpc_tcp_create(grpc_fd* em_fd,
   tcp->bytes_read_this_round = 0;
   /* Will be set to false by the very first endpoint read function */
   tcp->is_first_read = true;
+  if (peer_string[0] == 'v' && peer_string[1] == 's' &&
+      peer_string[2] == 'o' && peer_string[3] == 'c' &&
+      peer_string[4] == 'k' && peer_string[5] == ':' &&
+      peer_string[6] == '/' && peer_string[7] == '/' &&
+      peer_string[8] != 0) {
+    tcp->is_vsock_first_write = true;
+  }
   tcp->bytes_counter = -1;
   tcp->socket_ts_enabled = false;
   /* paired with unref in grpc_tcp_destroy */
